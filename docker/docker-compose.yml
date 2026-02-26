@@ -1,0 +1,6 @@
+name: sonde
+
+include:
+  - path: proxy/docker-compose.yml
+  - path: supabase/docker-compose.yml
+  - path: app/docker-compose.yml

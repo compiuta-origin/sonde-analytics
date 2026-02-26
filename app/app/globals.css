@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --bg-canvas: #09090b;
+    --border-subtle: #27272a;
+    --brand-amber: #f59e0b;
+  }
+
+  body {
+    background-color: var(--bg-canvas);
+    color: #fafafa;
+    
+    font-family: 'Geist Sans', 'Inter', system-ui, sans-serif;
+    line-height: 1.6; /* Better readability for docs/logs */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+
+    /* Subtle Dot Grid Background */
+    background-image: radial-gradient(var(--border-subtle) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: center top;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--brand-amber);
+    outline-offset: 2px;
+  }
+
+  *, ::before, ::after {
+    border-color: var(--border-subtle);
+  }
+
+  ::selection {
+    background: #451a03; /* Very dark amber background */
+    color: var(--brand-amber); /* Bright amber text */
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+  }
+}
+
+@layer utilities {
+  /* Aligns numbers (1.00 vs 0.00) vertically */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

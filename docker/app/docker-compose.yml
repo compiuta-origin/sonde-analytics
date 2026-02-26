@@ -1,0 +1,21 @@
+services:
+  app:
+    build:
+      context: ../../app
+      dockerfile: Dockerfile
+      
+    container_name: sonde
+    restart: unless-stopped
+    environment:
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      
+      STRIPE_API_KEY: ${STRIPE_API_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      SYSTEM_OPENROUTER_KEY: ${SYSTEM_OPENROUTER_KEY}
+
+      # public
+      SUPABASE_PUBLIC_URL: ${API_EXTERNAL_URL}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      TERMS_URL: https://sondeanalytics.com/terms

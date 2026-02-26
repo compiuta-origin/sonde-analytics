@@ -1,0 +1,11 @@
+{$APP_DOMAIN} {
+    reverse_proxy sonde:3000 {
+        header_up Host {host}
+    }
+}
+
+{$API_DOMAIN} {
+    reverse_proxy kong:8000 {
+        header_up Host {host}
+    }
+}
