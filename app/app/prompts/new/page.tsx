@@ -13,7 +13,7 @@ import { getPlanLimits } from '@/lib/plans';
 import { RULE_TYPES, RULE_TYPES_BY_ID } from '@/lib/rules';
 import { useSubscription } from '@/lib/use-subscription';
 import { estimateMonthlyRuns, generateAlignedCron } from '@/lib/utils';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Info, Plus, Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -315,27 +315,35 @@ export default function NewPrompt() {
         </div>
 
         {/* Submit */}
-        <div className="flex gap-4">
-          <Button
-            type="submit"
-            disabled={saving}
-            variant="primary"
-            size="lg"
-            className="w-full md:w-auto"
-          >
-            <Plus size={16} />
-            {saving ? 'Creating...' : 'Create Prompt'}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => router.push('/prompts')}
-            variant="secondary"
-            size="lg"
-            className="w-full md:w-auto"
-          >
-            <X size={16} />
-            Cancel
-          </Button>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-4">
+            <Button
+              type="submit"
+              disabled={saving}
+              variant="primary"
+              size="lg"
+              className="w-full md:w-auto"
+            >
+              <Plus size={16} />
+              {saving ? 'Creating...' : 'Create Prompt'}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => router.push('/prompts')}
+              variant="secondary"
+              size="lg"
+              className="w-full md:w-auto"
+            >
+              <X size={16} />
+              Cancel
+            </Button>
+          </div>
+          {scheduleCron !== '' && (
+            <p className="flex items-center gap-1.5 text-xs text-text-muted">
+              <Info size={12} />
+              Your prompt will run automatically after creation.
+            </p>
+          )}
         </div>
       </form>
     </div>
