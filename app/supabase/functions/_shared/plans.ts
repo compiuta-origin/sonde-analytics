@@ -1,6 +1,6 @@
 export const PLAN_LIMITS = {
   free: {
-    monthly_credits: 2,
+    monthly_credits: 5,
   },
   pro: {
     monthly_credits: 10,

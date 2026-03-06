@@ -270,7 +270,8 @@ async function processExecution(
           prompt.query_text,
           target.model,
           target.use_search,
-          userTier === 'free' ? 'medium' : 'high',
+          // NOTE: using "high" for the first period instead of "medium" even for free accounts
+          userTier === 'free' ? 'high' : 'high',
         );
 
         console.log(
