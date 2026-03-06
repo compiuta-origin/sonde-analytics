@@ -23,16 +23,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.__ENV__ = ${JSON.stringify({
-              SUPABASE_PUBLIC_URL: process.env.SUPABASE_PUBLIC_URL ?? '',
-              SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ?? '',
-              STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY ?? '',
-              TERMS_URL: process.env.TERMS_URL ?? '',
-            })};`,
-          }}
-        />
+        {process.env.NODE_ENV === 'development' ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.__ENV__ = ${JSON.stringify({
+                SUPABASE_PUBLIC_URL: process.env.SUPABASE_PUBLIC_URL ?? '',
+                SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ?? '',
+                STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY ?? '',
+                TERMS_URL: process.env.TERMS_URL ?? '',
+              })};`,
+            }}
+          />
+        ) : (
+          <script src="/_next/static/env.js"></script>
+        )}
       </head>
       <body
         className={`${inter.className} bg-background text-foreground min-h-screen`}
