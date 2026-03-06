@@ -1,6 +1,7 @@
 import AuthProvider from '@/components/auth-provider';
 import Navbar from '@/components/navbar';
 import { ToastProvider } from '@/components/providers/toast-provider';
+import WelcomeTour from '@/components/welcome-tour/welcome-tour';
 import { Inter } from 'next/font/google';
 import './globals.css';
 
@@ -38,6 +39,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ToastProvider>
+            <WelcomeTour />
             <Navbar />
             <main className="container mx-auto px-4 py-8">{children}</main>
           </ToastProvider>

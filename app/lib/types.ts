@@ -3,6 +3,7 @@ export interface Profile {
   id: string;
   email: string;
   credits_balance: number;
+  tour_completed: boolean;
   created_at: string;
 }
 
