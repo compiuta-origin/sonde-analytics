@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [selectedPromptId, setSelectedPromptId] = useState<string>('');
   const [rules, setRules] = useState<Rule[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState<Period>('7d');
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>('12m');
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>(
     MODELS.map((m) => m.id)
   );
