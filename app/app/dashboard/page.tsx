@@ -331,7 +331,7 @@ export default function Dashboard() {
             </div>
           ) : data.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ left: -20, right: 10 }}>
+              <LineChart data={data} margin={{ left: -20, right: 10, top: 8 }}>
                 <CartesianGrid
                   stroke="#27272a"
                   strokeDasharray="3 3"
