@@ -5,6 +5,7 @@ import { useSupabase } from '@/components/auth-provider';
 import { getHumanReadableCron } from '@/components/cron-scheduler';
 import { useToast } from '@/components/providers/toast-provider';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { MODELS_BY_ID } from '@/lib/models';
 import { RULE_TYPES_BY_ID } from '@/lib/rules';
 import {
@@ -18,12 +19,14 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function Prompts() {
   const [prompts, setPrompts] = useState<any[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [executingPromptId, setExecutingPromptId] = useState<string | null>(null);
+  const [confirmRunPrompt, setConfirmRunPrompt] = useState<any | null>(null);
+  const confirmCancelRef = useRef<HTMLButtonElement>(null);
   const { supabase, user } = useSupabase();
   const { success, error: showError } = useToast();
 
@@ -149,14 +152,14 @@ export default function Prompts() {
               </div>
               <div className="flex gap-2 shrink-0">
                 <Button
-                  onClick={() => runNow(prompt.id)}
+                  onClick={() => setConfirmRunPrompt(prompt)}
                   variant="secondary"
                   size="sm"
                   title="Run Now"
                   disabled={executingPromptId === prompt.id}
                 >
                   <RefreshCw size={16} className={executingPromptId === prompt.id ? 'animate-spin' : ''} />
-                  <span className="hidden sm:inline">Run</span>
+                  <span className="hidden sm:inline">Run now</span>
                 </Button>
                 <Button
                   onClick={() => toggleActive(prompt.id, prompt.is_active)}
@@ -302,6 +305,50 @@ export default function Prompts() {
           </div>
         )}
       </div>
+
+      {confirmRunPrompt && (
+        <Modal
+          level="warning"
+          title="Run prompt manually?"
+          actions={
+            <>
+              <Button
+                ref={confirmCancelRef}
+                variant="secondary"
+                size="md"
+                onClick={() => setConfirmRunPrompt(null)}
+              >
+                Keep schedule only
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                disabled={executingPromptId === confirmRunPrompt.id}
+                onClick={() => {
+                  const id = confirmRunPrompt.id;
+                  setConfirmRunPrompt(null);
+                  runNow(id);
+                }}
+              >
+                <RefreshCw size={14} className={executingPromptId === confirmRunPrompt.id ? 'animate-spin' : ''} />
+                Run now
+              </Button>
+            </>
+          }
+        >
+          <p>
+            Running this prompt manually will deduct{' '}
+            <span className="font-medium text-text-primary">1 additional credit</span> from your balance.
+          </p>
+          {confirmRunPrompt.is_active && (
+            <p>
+              This prompt is already{' '}
+              <span className="font-medium text-text-primary">active</span> and running automatically on a{' '}
+              <span className="font-medium text-text-primary">{getHumanReadableCron(confirmRunPrompt.schedule_cron)}</span> schedule.
+            </p>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
