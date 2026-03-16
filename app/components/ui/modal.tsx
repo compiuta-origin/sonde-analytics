@@ -20,7 +20,7 @@ export function Modal({ title, level = 'info', children, actions }: ModalProps) 
   const { Icon } = LEVEL_CONFIG[level];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div
         role="dialog"
         aria-modal="true"
