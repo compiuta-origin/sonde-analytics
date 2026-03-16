@@ -7,7 +7,7 @@ import { useToast } from '@/components/providers/toast-provider';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { MODELS_BY_ID } from '@/lib/models';
-import { RULE_TYPES_BY_ID } from '@/lib/rules';
+import { ruleTypeColor } from '@/lib/rules';
 import {
   ChevronDown,
   ChevronUp,
@@ -191,86 +191,74 @@ export default function Prompts() {
 
             {expandedId === prompt.id && (
               <div className="mt-4 pt-4 border-t border-border-subtle animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                  <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col gap-4">
                     <div>
-                      <p className="text-text-secondary font-medium mb-1">
-                        Created At
-                      </p>
-                      <p className="text-text-primary font-light ">
-                        {new Date(prompt.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-text-secondary font-medium mb-1">
-                        Full Query
-                      </p>
-                      <div className="font-light bg-surface-muted rounded text-text-primary text-sm whitespace-pre-wrap max-h-40 overflow-y-auto">
+                      <p className="text-xs uppercase tracking-wider text-text-muted mb-2">Full Query</p>
+                      <div className="p-3 bg-canvas border border-border-subtle rounded-sm text-sm text-text-primary whitespace-pre-wrap max-h-40 overflow-y-auto">
                         {prompt.query_text}
                       </div>
                     </div>
+                    <div className="mt-auto flex justify-between items-center pt-2 border-t border-border-subtle">
+                      <p className="text-xs uppercase tracking-wider text-text-muted">Created</p>
+                      <p className="text-xs font-mono text-text-secondary">
+                        {new Date(prompt.created_at).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-text-secondary font-medium mb-2">
-                        Target Models
-                      </p>
-                      <div className="space-y-2">
-                        {prompt.target_config?.map((conf: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between p-2 bg-surface-muted rounded border border-border-subtle"
-                          >
-                            <span className="font-medium text-text-primary">
-                              {MODELS_BY_ID[conf.model]?.name || conf.model}
-                            </span>
-                            {conf.use_search && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-canvas text-text-muted flex items-center gap-1.5 border border-border-subtle">
-                                <Globe size={10} />
-                                Search
+                      <p className="text-xs uppercase tracking-wider text-text-muted mb-2">Target Models</p>
+                      <div className="space-y-1.5">
+                        {prompt.target_config?.map((conf: any, idx: number) => {
+                          const model = MODELS_BY_ID[conf.model];
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between px-3 py-2 bg-canvas border border-border-subtle rounded-sm"
+                            >
+                              <span className="flex items-center gap-2 text-sm text-text-primary">
+                                {model ? <model.icon size={14} /> : null}
+                                {model?.name || conf.model}
                               </span>
-                            )}
-                          </div>
-                        ))}
+                              {conf.use_search && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-surface text-text-muted flex items-center gap-1.5 border border-border-subtle">
+                                  <Globe size={10} />
+                                  Search
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                     <div>
-                      <p className="text-text-secondary font-medium mb-2">
-                        Associated Rules
-                      </p>
+                      <p className="text-xs uppercase tracking-wider text-text-muted mb-2">Rules</p>
                       {prompt.rules && prompt.rules.length > 0 ? (
-                        <div className="space-y-2">
-                          {prompt.rules.map((rule: any) => {
-                            const ruleConfig = RULE_TYPES_BY_ID[rule.type];
-                            const RuleIcon = ruleConfig?.icon;
-                            return (
-                              <div
-                                key={rule.id}
-                                className="p-3 bg-surface-muted rounded border border-border-subtle"
-                              >
-                                <div className="flex justify-between items-start mb-1 gap-2">
-                                  <span className="font-medium text-text-primary">
-                                    {rule.name}
-                                  </span>
-                                  {ruleConfig && (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-canvas text-text-muted flex items-center gap-1.5 border border-border-subtle shrink-0">
-                                      {RuleIcon && <RuleIcon size={10} />}
-                                      {ruleConfig.label}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-text-secondary">
+                        <div className="space-y-1.5">
+                          {prompt.rules.map((rule: any) => (
+                            <div
+                              key={rule.id}
+                              className="px-3 py-2 bg-canvas border border-border-subtle rounded-sm"
+                            >
+                              <span className="flex items-center gap-2 text-sm text-text-primary">
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: ruleTypeColor(rule.type) }}
+                                />
+                                {rule.name}
+                              </span>
+                              {rule.description && (
+                                <p className="text-xs text-text-muted mt-1 ml-3.5">
                                   {rule.description}
                                 </p>
-                              </div>
-                            );
-                          })}
+                              )}
+                            </div>
+                          ))}
                         </div>
                       ) : (
-                        <p className="text-text-muted text-xs italic">
-                          No specific rules configured.
-                        </p>
+                        <p className="text-xs text-text-muted italic">No rules configured.</p>
                       )}
                     </div>
                   </div>
