@@ -3,11 +3,18 @@
 
 import { useSupabase } from '@/components/auth-provider';
 import { PageHeader } from '@/components/page-header';
+import { MODELS_BY_ID } from '@/lib/models';
 import { format } from 'date-fns';
 import { Globe } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+function ruleTypeColor(type: string) {
+  if (type === 'ranking') return '#f59e0b';
+  if (type === 'sentiment') return '#3b82f6';
+  return '#10b981';
+}
 
 export default function Logs() {
   const [runs, setRuns] = useState<any[]>([]);
@@ -132,24 +139,29 @@ export default function Logs() {
             Details
           </h2>
           {selectedRun ? (
-            <div className="flex-1 overflow-y-auto p-6 border border-border-subtle rounded-sm bg-surface space-y-6">
-              <div>
-                <div className="text-sm text-text-secondary">Model</div>
-                <div className="font-medium text-text-primary">
-                  {selectedRun.model_used}
+            <div className="flex-1 flex flex-col p-6 border border-border-subtle rounded-sm bg-surface gap-5 min-h-0">
+              {/* Query + Model — primary heading row */}
+              <div className="flex items-baseline justify-between w-full gap-4 shrink-0">
+                <div className="font-medium text-text-primary">{selectedRun.prompts.query_text}</div>
+                <div className="flex items-center gap-1.5 text-xs text-text-muted shrink-0">
+                  {(() => {
+                    const model = MODELS_BY_ID[selectedRun.model_used];
+                    return model ? (
+                      <>
+                        <model.icon size={13} />
+                        <span>{model.name}</span>
+                      </>
+                    ) : (
+                      <span>{selectedRun.model_used}</span>
+                    );
+                  })()}
                 </div>
               </div>
 
-              <div>
-                <div className="text-sm text-text-secondary">Query</div>
-                <div className="mt-1 text-text-primary">
-                  {selectedRun.prompts.query_text}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-sm text-text-secondary">Response</div>
-                <div className="mt-1 p-3 bg-canvas border border-border-subtle rounded-sm text-sm text-text-primary prose max-w-none dark:prose-invert">
+              {/* Response — grows to fill available space */}
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="text-xs uppercase tracking-wider text-text-muted mb-2 shrink-0">Response</div>
+                <div className="flex-1 overflow-y-auto p-3 bg-canvas border border-border-subtle rounded-sm text-sm text-text-primary prose max-w-none dark:prose-invert">
                   {selectedRun.response_text ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {selectedRun.response_text}
@@ -162,35 +174,38 @@ export default function Logs() {
 
               {selectedRun.evaluations &&
                 selectedRun.evaluations.length > 0 && (
-                  <div>
-                    <div className="text-sm text-text-secondary mb-2">
+                  <div className="shrink-0">
+                    <div className="text-xs uppercase tracking-wider text-text-muted mb-2">
                       Evaluations
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {selectedRun.evaluations.map(
                         (evaluation: any, idx: number) => (
                           <div
                             key={idx}
-                            className="p-3 border border-border-subtle rounded-sm bg-canvas"
+                            className="px-3 py-2.5 border border-border-subtle rounded-sm bg-canvas"
                           >
-                            <div className="flex justify-between mb-1">
-                              <span className="font-medium text-text-primary">
+                            <div className="flex justify-between items-center">
+                              <span className="flex items-center gap-2 text-sm text-text-primary">
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: ruleTypeColor(evaluation.rules.type) }}
+                                />
                                 {evaluation.rules.name}
                               </span>
                               <span
-                                className={`font-semibold font-mono ${getScoreColor(
+                                className={`text-sm font-mono tabular-nums ${getScoreColor(
                                   evaluation.score,
                                   evaluation.rules.type
                                 )}`}
                               >
-                                {evaluation.rules.type === 'ranking' &&
-                                evaluation.score > 0
-                                  ? `Position #${evaluation.score}`
-                                  : `Score: ${evaluation.score}`}
+                                {evaluation.rules.type === 'ranking'
+                                  ? evaluation.score > 0 ? `#${evaluation.score}` : '—'
+                                  : evaluation.score}
                               </span>
                             </div>
                             {evaluation.reasoning && (
-                              <div className="text-sm text-text-secondary">
+                              <div className="text-xs text-text-muted mt-1.5 leading-relaxed">
                                 {evaluation.reasoning}
                               </div>
                             )}
@@ -201,21 +216,12 @@ export default function Logs() {
                   </div>
                 )}
 
-              <div className="pt-4 border-t border-border-subtle space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-text-secondary">Tokens (in/out):</span>
-                  <span className="font-mono text-text-primary">
-                    {selectedRun.token_usage_input}/
-                    {selectedRun.token_usage_output}
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span className="text-text-secondary">Executed:</span>
-                  <span className="font-mono text-text-primary">
-                    {format(new Date(selectedRun.executed_at), 'PPpp')}
-                  </span>
-                </div>
+              {/* Timestamp pinned at bottom */}
+              <div className="pt-4 border-t border-border-subtle shrink-0 flex justify-between items-center">
+                <span className="text-xs uppercase tracking-wider text-text-muted">Executed</span>
+                <span className="text-xs font-mono text-text-secondary">
+                  {format(new Date(selectedRun.executed_at), 'PPpp')}
+                </span>
               </div>
             </div>
           ) : (
@@ -243,14 +249,27 @@ export default function Logs() {
               </div>
 
               <div className="space-y-3 text-sm">
-                <div>
-                  <span className="text-text-secondary">Model: </span>
-                  <span className="font-medium text-text-primary">{selectedRun.model_used}</span>
-                </div>
-
-                <div>
-                  <span className="text-text-secondary">Query: </span>
-                  <span className="text-text-primary">{selectedRun.prompts.query_text}</span>
+                <div className="flex items-start gap-4">
+                  <div className="shrink-0">
+                    <span className="text-text-secondary block mb-0.5">Model</span>
+                    <div className="flex items-center gap-1.5 font-medium text-text-primary">
+                      {(() => {
+                        const model = MODELS_BY_ID[selectedRun.model_used];
+                        return model ? (
+                          <>
+                            <model.icon size={14} />
+                            <span>{model.name}</span>
+                          </>
+                        ) : (
+                          <span>{selectedRun.model_used}</span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-text-secondary block mb-0.5">Query</span>
+                    <span className="text-text-primary">{selectedRun.prompts.query_text}</span>
+                  </div>
                 </div>
 
                 <div className="pt-2">
@@ -262,21 +281,6 @@ export default function Logs() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border-subtle">
-                  <div>
-                    <span className="text-text-secondary">Tokens: </span>
-                    <span className="font-mono text-text-primary">
-                      {selectedRun.token_usage_input}/{selectedRun.token_usage_output}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-text-secondary">Executed: </span>
-                    <span className="font-mono text-text-primary">
-                      {format(new Date(selectedRun.executed_at), 'PPpp')}
-                    </span>
-                  </div>
-                </div>
-
                 {/* Evaluations on mobile */}
                 {selectedRun.evaluations && selectedRun.evaluations.length > 0 && (
                   <div className="pt-2 border-t border-border-subtle">
@@ -284,8 +288,12 @@ export default function Logs() {
                     <div className="space-y-2">
                       {selectedRun.evaluations.map((evaluation: any, idx: number) => (
                         <div key={idx} className="flex justify-between items-center p-2 bg-surface-muted rounded">
-                          <span className="text-text-primary">
-                            {evaluation.rules.name}:
+                          <span className="flex items-center gap-2 text-text-primary">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: ruleTypeColor(evaluation.rules.type) }}
+                            />
+                            {evaluation.rules.name}
                           </span>
                           <span className={`font-medium ${getScoreColor(evaluation.score, evaluation.rules.type)}`}>
                             {evaluation.rules.type === 'ranking' && evaluation.score > 0
