@@ -54,15 +54,15 @@ export default function Logs() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 h-full">
       <PageHeader title="System Logs" />
-      <div className="lg:grid lg:grid-cols-2 lg:gap-6">
+      <div className="flex-1 min-h-0 lg:grid lg:grid-cols-2 lg:gap-6">
         {/* Runs List */}
-        <div className="space-y-2 lg:max-h-[800px] lg:overflow-y-auto">
-          <h2 className="text-xl font-semibold mb-4 text-text-primary">
+        <div className="flex flex-col min-h-0">
+          <h2 className="text-xl font-semibold mb-4 text-text-primary shrink-0">
             Recent Runs
           </h2>
-          <div className="space-y-2">
+          <div className="flex-1 overflow-y-auto space-y-2">
             {runs.map((run) => (
               <div
                 key={run.id}
@@ -127,12 +127,12 @@ export default function Logs() {
         </div>
 
         {/* Run Details - Desktop only */}
-        <div className="hidden lg:block">
-          <h2 className="text-xl font-semibold mb-4 text-text-primary">
+        <div className="hidden lg:flex lg:flex-col min-h-0">
+          <h2 className="text-xl font-semibold mb-4 text-text-primary shrink-0">
             Details
           </h2>
           {selectedRun ? (
-            <div className="p-6 border border-border-subtle rounded-sm bg-surface space-y-6 max-h-[800px] overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-6 border border-border-subtle rounded-sm bg-surface space-y-6">
               <div>
                 <div className="text-sm text-text-secondary">Model</div>
                 <div className="font-medium text-text-primary">
@@ -149,7 +149,7 @@ export default function Logs() {
 
               <div>
                 <div className="text-sm text-text-secondary">Response</div>
-                <div className="mt-1 p-3 bg-canvas border border-border-subtle rounded-sm text-sm max-h-[300px] overflow-y-auto text-text-primary prose max-w-none dark:prose-invert">
+                <div className="mt-1 p-3 bg-canvas border border-border-subtle rounded-sm text-sm text-text-primary prose max-w-none dark:prose-invert">
                   {selectedRun.response_text ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {selectedRun.response_text}
@@ -219,7 +219,7 @@ export default function Logs() {
               </div>
             </div>
           ) : (
-            <div className="p-12 border border-border-subtle rounded-sm bg-surface text-center text-text-muted">
+            <div className="flex-1 flex items-center justify-center border border-border-subtle rounded-sm bg-surface text-center text-text-muted">
               Select a run to view details
             </div>
           )}

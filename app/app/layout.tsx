@@ -39,13 +39,13 @@ export default function RootLayout({
         )}
       </head>
       <body
-        className={`${inter.className} bg-background text-foreground min-h-screen`}
+        className={`${inter.className} bg-background text-foreground h-screen flex flex-col overflow-hidden`}
       >
         <AuthProvider>
           <ToastProvider>
             <WelcomeTour />
             <Navbar />
-            <main className="container mx-auto px-4 py-8">{children}</main>
+            <main className="container mx-auto px-4 py-8 flex-1 min-h-0 overflow-auto">{children}</main>
           </ToastProvider>
         </AuthProvider>
       </body>
