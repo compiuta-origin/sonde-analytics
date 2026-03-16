@@ -80,20 +80,29 @@ export default function Logs() {
                     : 'border-border-subtle'
                 }`}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="text-sm font-medium text-text-primary">
-                    {run.model_used.split('/')[1]}
+                {/* Query + timestamp */}
+                <div className="flex justify-between items-baseline gap-4 mb-2">
+                  <div className="text-sm font-medium text-text-primary truncate">
+                    {run.prompts.query_text}
                   </div>
-                  <div className="text-xs text-text-secondary font-mono">
+                  <div className="text-xs text-text-muted font-mono shrink-0">
                     {format(new Date(run.executed_at), 'MMM dd, HH:mm')}
                   </div>
                 </div>
 
-                <div className="text-sm text-text-secondary mb-2 truncate">
-                  {run.prompts.query_text}
-                </div>
-
-                <div className="flex items-center gap-2 text-xs">
+                {/* Model + badges */}
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const model = MODELS_BY_ID[run.model_used];
+                    return model ? (
+                      <span className="flex items-center gap-1.5 text-xs text-text-muted">
+                        <model.icon size={12} />
+                        {model.name}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-text-muted">{run.model_used}</span>
+                    );
+                  })()}
                   {run.web_search_enabled && (
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-canvas text-text-muted flex items-center gap-1.5 border border-border-subtle">
                       <Globe size={10} />
@@ -104,19 +113,22 @@ export default function Logs() {
 
                 {/* Scores */}
                 {run.evaluations && run.evaluations.length > 0 && (
-                  <div className="mt-2 flex gap-2 flex-wrap">
+                  <div className="mt-2 flex gap-3 flex-wrap">
                     {run.evaluations.map((evaluation: any, idx: number) => (
                       <span
                         key={idx}
-                        className={`text-xs font-medium font-mono ${getScoreColor(
+                        className={`flex items-center gap-1.5 text-xs font-mono tabular-nums ${getScoreColor(
                           evaluation.score,
                           evaluation.rules.type
                         )}`}
                       >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: ruleTypeColor(evaluation.rules.type) }}
+                        />
                         {evaluation.rules.name}:{' '}
-                        {evaluation.rules.type === 'ranking' &&
-                        evaluation.score > 0
-                          ? `#${evaluation.score}`
+                        {evaluation.rules.type === 'ranking'
+                          ? evaluation.score > 0 ? `#${evaluation.score}` : '—'
                           : evaluation.score}
                       </span>
                     ))}
