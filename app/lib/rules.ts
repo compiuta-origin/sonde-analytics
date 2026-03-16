@@ -35,3 +35,9 @@ export const RULE_TYPES_BY_ID = RULE_TYPES.reduce((acc, rule) => {
   acc[rule.id] = rule;
   return acc;
 }, {} as Record<string, RuleTypeConfig>);
+
+export function ruleTypeColor(type: string): string {
+  if (type === 'ranking') return '#f59e0b';
+  if (type === 'sentiment') return '#3b82f6';
+  return '#10b981';
+}

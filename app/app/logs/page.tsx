@@ -4,17 +4,12 @@
 import { useSupabase } from '@/components/auth-provider';
 import { PageHeader } from '@/components/page-header';
 import { MODELS_BY_ID } from '@/lib/models';
+import { ruleTypeColor } from '@/lib/rules';
 import { format } from 'date-fns';
 import { Globe } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
-function ruleTypeColor(type: string) {
-  if (type === 'ranking') return '#f59e0b';
-  if (type === 'sentiment') return '#3b82f6';
-  return '#10b981';
-}
 
 export default function Logs() {
   const [runs, setRuns] = useState<any[]>([]);
