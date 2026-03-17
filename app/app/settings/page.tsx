@@ -13,6 +13,7 @@ export default function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [creditUsage, setCreditUsage] = useState<number>(0);
   const [creditsBalance, setCreditsBalance] = useState<number>(0);
+  const [notifyOnCompletion, setNotifyOnCompletion] = useState<boolean>(true);
   const { supabase, user } = useSupabase();
   const { plan, isLoading: isLoadingSubscription } = useSubscription();
 
@@ -26,12 +27,13 @@ export default function Settings() {
     try {
       const { data, error: fetchError } = await supabase
         .from('profiles')
-        .select('credits_balance')
+        .select('credits_balance, notify_on_completion')
         .eq('id', user.id)
         .single();
 
       if (fetchError) throw fetchError;
       setCreditsBalance(data.credits_balance);
+      setNotifyOnCompletion(data.notify_on_completion ?? true);
 
       // Calculate credit usage
       // credits_balance = remaining credits
@@ -76,6 +78,19 @@ export default function Settings() {
     );
   }
 
+  async function toggleNotify(value: boolean) {
+    if (!user) return;
+    setNotifyOnCompletion(value);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ notify_on_completion: value })
+      .eq('id', user.id);
+    if (error) {
+      console.error('Failed to update notification preference:', error);
+      setNotifyOnCompletion(!value);
+    }
+  }
+
   if (isLoadingSubscription)
     return <div className="p-8 text-text-secondary">Loading...</div>;
 
@@ -86,6 +101,39 @@ export default function Settings() {
   return (
     <div className="space-y-8">
       <PageHeader title="Settings" />
+
+      {/* Notifications Card */}
+      <div className="p-6 border border-border-subtle rounded-sm bg-surface">
+        <h2 className="text-xl font-semibold text-text-primary mb-6">
+          Notifications
+        </h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-text-primary">
+              Email me when a run completes
+            </p>
+            <p className="text-xs text-text-secondary mt-1">
+              Receive results in your inbox after each scheduled run finishes.
+            </p>
+          </div>
+          <button
+            onClick={() => toggleNotify(!notifyOnCompletion)}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              notifyOnCompletion
+                ? 'bg-primary border-primary'
+                : 'bg-surface-muted border-border-subtle'
+            }`}
+            role="switch"
+            aria-checked={notifyOnCompletion}
+          >
+            <span
+              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                notifyOnCompletion ? 'translate-x-5' : 'translate-x-0.5'
+              } mt-0.5`}
+            />
+          </button>
+        </div>
+      </div>
 
       {/* Subscription Card with Credit Usage Visualization */}
       <div className="p-6 border border-border-subtle rounded-sm bg-surface">

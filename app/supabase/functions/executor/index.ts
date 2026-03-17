@@ -244,6 +244,8 @@ async function processExecution(
     if (!Array.isArray(targetConfigs) || targetConfigs.length === 0) {
       throw new Error('No target models configured for this prompt');
     }
+
+    const batchId = crypto.randomUUID();
     const results = [];
 
     for (const target of targetConfigs) {
@@ -283,6 +285,7 @@ async function processExecution(
           .from('runs')
           .insert({
             prompt_id: prompt.id,
+            batch_id: batchId,
             model_used: target.model,
             web_search_enabled: target.use_search,
             response_text: result.response,

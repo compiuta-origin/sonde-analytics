@@ -93,6 +93,10 @@ async function processEvaluation(
     const judgeApiKey = Deno.env.get('SYSTEM_OPENROUTER_KEY');
     if (!judgeApiKey) {
       console.log('[JUDGE] [ASYNC] No system key found, judge will be skipped');
+      await supabase
+        .from('runs')
+        .update({ judged_at: new Date().toISOString() })
+        .eq('id', runId);
       return;
     }
 
@@ -124,6 +128,10 @@ async function processEvaluation(
 
     if (!run.response_text) {
       console.log('[JUDGE] [ASYNC] No response text to evaluate');
+      await supabase
+        .from('runs')
+        .update({ judged_at: new Date().toISOString() })
+        .eq('id', runId);
       return;
     }
 
@@ -132,6 +140,10 @@ async function processEvaluation(
 
     if (rules.length === 0) {
       console.log('[JUDGE] [ASYNC] No rules defined for this prompt');
+      await supabase
+        .from('runs')
+        .update({ judged_at: new Date().toISOString() })
+        .eq('id', runId);
       return;
     }
 
@@ -175,9 +187,18 @@ async function processEvaluation(
       }
     }
 
+    await supabase
+      .from('runs')
+      .update({ judged_at: new Date().toISOString() })
+      .eq('id', runId);
+
     console.log('[JUDGE] [ASYNC] Evaluation complete');
   } catch (error) {
     console.error('[JUDGE] [ASYNC] Unexpected error:', error);
+    await supabase
+      .from('runs')
+      .update({ judged_at: new Date().toISOString() })
+      .eq('id', runId);
   }
 }
 

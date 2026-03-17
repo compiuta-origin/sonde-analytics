@@ -365,6 +365,9 @@ deno_version = 2
 [functions.scheduler]
 verify_jwt = false
 
+[functions.notify]
+verify_jwt = false
+
 [functions.stripe-webhook]
 verify_jwt = false
 
