@@ -197,13 +197,100 @@ function formatScore(score: number, type: string): string {
 }
 
 function scoreColor(score: number, type: string): string {
-  if (type === 'binary') return score === 1 ? '#4ade80' : '#f87171';
+  if (type === 'binary') return score === 1 ? '#16a34a' : '#dc2626';
   if (type === 'sentiment') {
-    if (score > 0) return '#4ade80';
-    if (score < 0) return '#f87171';
-    return '#a0a0a0';
+    if (score > 0) return '#16a34a';
+    if (score < 0) return '#dc2626';
+    return '#71717a';
   }
-  return '#f59e0b';
+  return '#d97706';
+}
+
+function formatModelName(slug: string): string {
+  const name = slug.includes('/') ? slug.split('/').pop()! : slug;
+  return name
+    .toLowerCase()
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function markdownToHtml(
+  md: string,
+  textPrimary: string,
+  textSecondary: string,
+): string {
+  const lines = md.split('\n');
+  const result: string[] = [];
+  let inList = false;
+  let listItems: string[] = [];
+
+  const closeList = () => {
+    if (inList) {
+      result.push(
+        `<ul style="margin:6px 0 8px 0;padding-left:18px;">${listItems.join('')}</ul>`,
+      );
+      listItems = [];
+      inList = false;
+    }
+  };
+
+  const inline = (text: string): string => {
+    text = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+    text = text.replace(
+      /`([^`]+)`/g,
+      `<code style="font-family:monospace;font-size:12px;background:#f4f4f5;padding:1px 4px;border-radius:3px;color:${textPrimary};">$1</code>`,
+    );
+    text = text.replace(
+      /\[([^\]]+)\]\(([^)]+)\)/g,
+      `<a href="$2" style="color:#2563eb;text-decoration:underline;">$1</a>`,
+    );
+    return text;
+  };
+
+  for (const line of lines) {
+    const h1 = line.match(/^# (.+)/);
+    const h2 = line.match(/^## (.+)/);
+    const h3 = line.match(/^### (.+)/);
+    const li = line.match(/^[\*\-] (.+)/);
+
+    if (h1) {
+      closeList();
+      result.push(
+        `<p style="font-size:16px;font-weight:700;color:${textPrimary};margin:18px 0 4px;line-height:1.4;">${inline(h1[1])}</p>`,
+      );
+    } else if (h2) {
+      closeList();
+      result.push(
+        `<p style="font-size:14px;font-weight:600;color:${textPrimary};margin:16px 0 4px;line-height:1.4;">${inline(h2[1])}</p>`,
+      );
+    } else if (h3) {
+      closeList();
+      result.push(
+        `<p style="font-size:13px;font-weight:600;color:${textPrimary};margin:12px 0 2px;line-height:1.4;">${inline(h3[1])}</p>`,
+      );
+    } else if (li) {
+      inList = true;
+      listItems.push(
+        `<li style="font-size:13px;line-height:1.7;color:${textSecondary};margin-bottom:3px;">${inline(li[1])}</li>`,
+      );
+    } else if (line.trim() === '') {
+      closeList();
+    } else {
+      closeList();
+      result.push(
+        `<p style="font-size:13px;line-height:1.7;color:${textSecondary};margin:4px 0;">${inline(line)}</p>`,
+      );
+    }
+  }
+
+  closeList();
+  return result.join('\n');
 }
 
 function buildHtml(
@@ -212,12 +299,13 @@ function buildHtml(
   appUrl: string | undefined,
 ): string {
   const font = `Inter, system-ui, -apple-system, sans-serif`;
-  const bg = `#09090b`;
-  const surface = `#18181b`;
-  const border = `#27272a`;
-  const textPrimary = `#fafafa`;
-  const textSecondary = `#a1a1aa`;
-  const textMuted = `#52525b`;
+  const bg = `#f4f4f5`;
+  const surface = `#ffffff`;
+  const border = `#e4e4e7`;
+  const borderLight = `#f4f4f5`;
+  const textPrimary = `#18181b`;
+  const textSecondary = `#3f3f46`;
+  const textMuted = `#71717a`;
 
   const runsHtml = runs
     .map((run) => {
@@ -225,8 +313,8 @@ function buildHtml(
 
       const evalsHtml =
         evals.length > 0
-          ? `<div style="margin-top:16px;border-top:1px solid ${border};padding-top:12px;">
-          <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${textMuted};margin-bottom:8px;">Evaluations</div>
+          ? `<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid ${border};">
+          <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${textMuted};margin-bottom:10px;">Evaluations</div>
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             ${evals
               .map((e) => {
@@ -234,9 +322,9 @@ function buildHtml(
                 const color = scoreColor(e.score, rule?.type ?? 'binary');
                 const badge = formatScore(e.score, rule?.type ?? 'binary');
                 return `<tr>
-                <td width="36" valign="top" style="padding:5px 8px 5px 0;font-size:12px;font-weight:bold;color:${color};">${badge}</td>
-                <td valign="top" style="padding:5px 0;border-bottom:1px solid ${bg};">
-                  <div style="font-size:12px;color:${textSecondary};">${escapeHtml(rule?.name ?? '')}</div>
+                <td width="32" valign="top" style="padding:5px 8px 5px 0;font-size:13px;font-weight:700;color:${color};">${badge}</td>
+                <td valign="top" style="padding:5px 0;border-bottom:1px solid ${borderLight};">
+                  <div style="font-size:12px;font-weight:500;color:${textSecondary};">${escapeHtml(rule?.name ?? '')}</div>
                   ${e.reasoning ? `<div style="font-size:11px;color:${textMuted};margin-top:2px;">${escapeHtml(e.reasoning)}</div>` : ''}
                 </td>
               </tr>`;
@@ -246,10 +334,16 @@ function buildHtml(
         </div>`
           : '';
 
-      return `<div style="margin-bottom:16px;padding:16px;background:${surface};border:1px solid ${border};border-radius:2px;">
-      <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${textMuted};margin-bottom:10px;">${escapeHtml(run.model_used)}</div>
-      <div style="font-size:13px;line-height:1.7;color:${textSecondary};white-space:pre-wrap;">${escapeHtml(run.response_text ?? '')}</div>
+      const responseHtml = markdownToHtml(
+        run.response_text ?? '',
+        textPrimary,
+        textSecondary,
+      );
+
+      return `<div style="margin-bottom:16px;padding:20px;background:${surface};border:1px solid ${border};border-radius:4px;">
+      <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${textMuted};margin-bottom:14px;">${escapeHtml(formatModelName(run.model_used))}</div>
       ${evalsHtml}
+      <div>${responseHtml}</div>
     </div>`;
     })
     .join('');
@@ -267,13 +361,13 @@ function buildHtml(
 <body style="margin:0;padding:0;background:${bg};font-family:${font};color:${textPrimary};">
   <div style="max-width:620px;margin:0 auto;padding:40px 24px;">
 
-    <div style="margin-bottom:32px;">
-      <span style="font-size:13px;letter-spacing:0.2em;text-transform:uppercase;color:${textMuted};">Sonde</span>
+    <div style="margin-bottom:28px;">
+      <span style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${textMuted};font-weight:500;">Sonde</span>
     </div>
 
-    <div style="margin-bottom:20px;padding:16px;background:${surface};border:1px solid ${border};border-radius:2px;">
-      <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${textMuted};margin-bottom:8px;">Prompt</div>
-      <div style="font-size:14px;line-height:1.6;color:${textPrimary};">${escapeHtml(queryText)}</div>
+    <div style="margin-bottom:20px;padding:20px;background:${surface};border:1px solid ${border};border-radius:4px;">
+      <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${textMuted};margin-bottom:8px;">Prompt</div>
+      <div style="font-size:15px;font-weight:500;line-height:1.55;color:${textPrimary};">${escapeHtml(queryText)}</div>
     </div>
 
     ${runsHtml}
