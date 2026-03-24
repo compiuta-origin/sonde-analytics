@@ -37,8 +37,8 @@ function UpgradeContent() {
   const currentPrices = prices[currency];
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-16">
-      <div className="text-center space-y-4 mb-12">
+    <div className="max-w-3xl mx-auto px-4 py-4">
+      <div className="text-center space-y-2 mb-6">
         <h1 className="text-4xl font-bold tracking-tight text-text-primary">
           {isPro ? 'Your Subscription' : 'Upgrade to Pro'}
         </h1>
