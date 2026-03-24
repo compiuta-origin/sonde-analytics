@@ -14,6 +14,20 @@ interface TargetConfig {
   use_search: boolean;
 }
 
+function resolveUserTier(subscriptions: Array<{ plan?: string; status?: string }> | null | undefined) {
+  if (!subscriptions || subscriptions.length === 0) {
+    return 'free';
+  }
+
+  const activePaidSubscription = subscriptions.find(
+    (subscription) =>
+      ['active', 'trialing'].includes(subscription.status ?? '') &&
+      ['pro', 'enterprise'].includes(subscription.plan ?? ''),
+  );
+
+  return activePaidSubscription?.plan || 'free';
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -112,7 +126,7 @@ serve(async (req) => {
 
     if (prompt.profiles.credits_balance <= 0) {
       throw new Error(
-        'Insufficient credits. Please upgrade your plan or wait for the monthly refill.',
+        'Insufficient credits. Please upgrade your plan or wait for your next monthly credit reset.',
       );
     }
 
@@ -218,18 +232,28 @@ async function processExecution(
     }
 
     // Fetch user's subscription plan for model enforcement
-    const { data: subscription } = await supabase
+    const { data: subscriptions, error: subscriptionError } = await supabase
       .from('subscriptions')
-      .select('plan')
+      .select('plan, status, updated_at, created_at')
       .eq('user_id', prompt.user_id)
-      .single();
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-    const userTier = subscription?.plan || 'free';
+    if (subscriptionError) {
+      console.error(
+        '[EXECUTOR] [ASYNC] Failed to load subscriptions for prompt:',
+        prompt.user_id,
+        subscriptionError,
+      );
+    }
+
+    const userTier = resolveUserTier(subscriptions);
 
     // Check credits again in background
     if (profile.credits_balance <= 0) {
       throw new Error(
-        'Insufficient credits. Please upgrade your plan or wait for the monthly refill.',
+        'Insufficient credits. Please upgrade your plan or wait for your next monthly credit reset.',
       );
     }
 

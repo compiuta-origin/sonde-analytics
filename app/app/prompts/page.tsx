@@ -70,7 +70,9 @@ export default function Prompts() {
       }
       
       if (!profile || profile.credits_balance <= 0) {
-        throw new Error('Insufficient credits. Please upgrade your plan or wait for the monthly refill.');
+        throw new Error(
+          'Insufficient credits. Please upgrade your plan or wait for your next monthly credit reset.',
+        );
       }
 
       const { data: { session } } = await supabase.auth.getSession();

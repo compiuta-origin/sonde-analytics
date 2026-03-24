@@ -1,7 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import Stripe from 'https://esm.sh/stripe@17?target=denonext';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { PLAN_LIMITS } from '../_shared/plans.ts';
 
 const stripeApiKey = Deno.env.get('STRIPE_API_KEY');
 if (!stripeApiKey) {
@@ -15,11 +14,65 @@ const stripe = new Stripe(stripeApiKey, {
 
 const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
+function buildStripeResetKey(subscription: Stripe.Subscription) {
+  return `stripe:${subscription.id}:${subscription.current_period_start * 1000}`;
+}
+
+async function applyPaidCreditReset(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  userId: string,
+  plan: string,
+  subscription: Stripe.Subscription,
+) {
+  const resetKey = buildStripeResetKey(subscription);
+  const { data, error } = await supabaseAdmin.rpc(
+    'reset_user_credits_for_period',
+    {
+      p_user_id: userId,
+      p_plan: plan,
+      p_reset_key: resetKey,
+    },
+  );
+
+  if (error) {
+    console.error('[WEBHOOK] Failed to reset credits:', error);
+    throw error;
+  }
+
+  console.log(
+    `[WEBHOOK] Credit reset processed for ${userId}: ${JSON.stringify(data)}`,
+  );
+}
+
+async function findUserIdByCustomerId(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  customerId: string,
+) {
+  const { data, error } = await supabaseAdmin
+    .from('subscriptions')
+    .select('user_id')
+    .eq('stripe_customer_id', customerId)
+    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  const subscription = data?.[0];
+
+  if (error || !subscription?.user_id) {
+    console.error(
+      '[WEBHOOK] Could not find user for customer:',
+      customerId,
+      error,
+    );
+    return null;
+  }
+
+  return subscription.user_id;
+}
+
 serve(async (req) => {
   console.log(`[WEBHOOK] Request received: ${req.method} ${req.url}`);
   const signature = req.headers.get('Stripe-Signature');
-
-  // Verify webhook signature
   const body = await req.text();
   let event: Stripe.Event;
 
@@ -38,7 +91,6 @@ serve(async (req) => {
 
   console.log(`🔔 Event received: ${event.type} [ID: ${event.id}]`);
 
-  // Create Supabase admin client (bypasses RLS)
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -49,250 +101,178 @@ serve(async (req) => {
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-  // Handle different event types
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.supabase_user_id;
-        const customerId = session.customer as string;
-        const subscriptionId = session.subscription as string;
+        const customerId = session.customer as string | null;
+        const subscriptionId = session.subscription as string | null;
 
         console.log(
           `[WEBHOOK] Checkout completed. Session: ${session.id}, User: ${userId}, Customer: ${customerId}, Sub: ${subscriptionId}`,
         );
 
-        if (!userId) {
-          console.error(
-            '[WEBHOOK] CRITICAL: No user ID in session metadata. Metadata:',
-            JSON.stringify(session.metadata),
-          );
-          throw new Error('No user ID in session metadata');
+        if (!userId || !customerId) {
+          throw new Error('Missing user or customer ID in checkout session');
         }
 
-        // Update subscription record
-        console.log(`[WEBHOOK] Upserting subscription for user ${userId}...`);
-        const { data: subData, error: subError } = await supabaseAdmin
-          .from('subscriptions')
-          .upsert({
+        const { error } = await supabaseAdmin.from('subscriptions').upsert(
+          {
             user_id: userId,
             stripe_customer_id: customerId,
             stripe_subscription_id: subscriptionId,
             plan: 'pro',
             status: 'trialing',
             updated_at: new Date().toISOString(),
-          })
-          .select();
+          },
+          {
+            onConflict: 'stripe_customer_id',
+          },
+        );
 
-        if (subError) {
-          console.error('[WEBHOOK] Subscription upsert failed:', subError);
-          throw subError;
+        if (error) {
+          console.error('[WEBHOOK] Failed to upsert checkout subscription:', error);
+          throw error;
         }
-        console.log(
-          `[WEBHOOK] Subscription upserted successfully:`,
-          JSON.stringify(subData),
-        );
 
-        // Refill credits immediately on upgrade
-        console.log(
-          `[WEBHOOK] Updating credits for user ${userId} to ${PLAN_LIMITS['pro'].monthly_credits}...`,
-        );
-        const { data: profileData, error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .update({
-            credits_balance: PLAN_LIMITS['pro'].monthly_credits,
-          })
-          .eq('id', userId)
-          .select();
-
-        if (profileError) {
-          console.error('[WEBHOOK] Profile update failed:', profileError);
-          throw profileError;
-        }
-        console.log(
-          `[WEBHOOK] Profile updated successfully:`,
-          JSON.stringify(profileData),
-        );
-
-        console.log(
-          `[WEBHOOK] Successfully processed checkout.session.completed for user ${userId}`,
-        );
         break;
       }
 
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        let userId = subscription.metadata?.supabase_user_id;
         const customerId = subscription.customer as string;
-
-        console.log(
-          `[WEBHOOK] Subscription ${event.type}. Sub: ${subscription.id}, User: ${userId}, Customer: ${customerId}`,
-        );
+        let userId = subscription.metadata?.supabase_user_id ?? null;
 
         if (!userId) {
-          console.log(
-            '[WEBHOOK] No metadata in subscription, looking up by customer ID...',
-          );
-          const { data, error } = await supabaseAdmin
-            .from('subscriptions')
-            .select('user_id')
-            .eq('stripe_customer_id', customerId)
-            .single();
-
-          if (error || !data) {
-            console.error(
-              '[WEBHOOK] Could not find user for customer:',
-              customerId,
-              error,
-            );
-            // Note: In some cases, created might come before checkout.completed has upserted the record.
-            // We should handle this gracefully or rely on checkout.completed for the initial setup.
-            return new Response(
-              JSON.stringify({
-                received: true,
-                note: 'User not found for subscription sync',
-              }),
-              { status: 200 },
-            );
-          }
-          userId = data.user_id;
-          console.log(`[WEBHOOK] Found user ID via customer lookup: ${userId}`);
+          userId = await findUserIdByCustomerId(supabaseAdmin, customerId);
         }
 
-        // Determine billing interval from the price
-        const priceId = subscription.items.data[0].price.id;
+        if (!userId) {
+          return new Response(
+            JSON.stringify({
+              received: true,
+              note: 'User not found for subscription sync',
+            }),
+            { status: 200 },
+          );
+        }
+
+        const priceId = subscription.items.data[0]?.price.id ?? null;
         const billingInterval =
-          subscription.items.data[0].price.recurring?.interval;
+          subscription.items.data[0]?.price.recurring?.interval === 'year'
+            ? 'yearly'
+            : 'monthly';
         const status = subscription.status;
         const plan = 'pro';
 
-        console.log(
-          `[WEBHOOK] Updating subscription details. Status: ${status}, Plan: ${plan}, Interval: ${billingInterval}`,
-        );
-
-        // Update subscription status
-        const { error: subUpdateError } = await supabaseAdmin
+        const { error: subError } = await supabaseAdmin
           .from('subscriptions')
-          .update({
-            stripe_subscription_id: subscription.id,
-            stripe_price_id: priceId,
-            billing_interval: billingInterval === 'year' ? 'yearly' : 'monthly',
-            status: status,
-            plan: plan,
-            trial_start: subscription.trial_start
-              ? new Date(subscription.trial_start * 1000).toISOString()
-              : null,
-            trial_end: subscription.trial_end
-              ? new Date(subscription.trial_end * 1000).toISOString()
-              : null,
-            current_period_start: new Date(
-              subscription.current_period_start * 1000,
-            ).toISOString(),
-            current_period_end: new Date(
-              subscription.current_period_end * 1000,
-            ).toISOString(),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('stripe_customer_id', customerId);
-
-        if (subUpdateError) {
-          console.error(
-            '[WEBHOOK] Subscription status update failed:',
-            subUpdateError,
+          .upsert(
+            {
+              user_id: userId,
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscription.id,
+              stripe_price_id: priceId,
+              billing_interval: billingInterval,
+              status,
+              plan,
+              trial_start: subscription.trial_start
+                ? new Date(subscription.trial_start * 1000).toISOString()
+                : null,
+              trial_end: subscription.trial_end
+                ? new Date(subscription.trial_end * 1000).toISOString()
+                : null,
+              current_period_start: new Date(
+                subscription.current_period_start * 1000,
+              ).toISOString(),
+              current_period_end: new Date(
+                subscription.current_period_end * 1000,
+              ).toISOString(),
+              cancel_at_period_end: subscription.cancel_at_period_end,
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: 'stripe_customer_id',
+            },
           );
-          throw subUpdateError;
+
+        if (subError) {
+          console.error('[WEBHOOK] Failed to sync subscription update:', subError);
+          throw subError;
         }
 
-        // Refill credits if status is active or trialing
         if (['active', 'trialing'].includes(status)) {
-          console.log(
-            `[WEBHOOK] Status is ${status}, refilling credits for user ${userId}...`,
-          );
-          const { error: profileUpdateError } = await supabaseAdmin
-            .from('profiles')
-            .update({
-              credits_balance: PLAN_LIMITS[plan].monthly_credits,
-            })
-            .eq('id', userId);
-
-          if (profileUpdateError) {
-            console.error(
-              '[WEBHOOK] Profile credit refill failed during sub update:',
-              profileUpdateError,
-            );
-          } else {
-            console.log('[WEBHOOK] Credits refilled successfully');
-          }
+          await applyPaidCreditReset(supabaseAdmin, userId, plan, subscription);
         }
+
         break;
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
 
-        // Downgrade to free plan
-        await supabaseAdmin
+        const { error } = await supabaseAdmin
           .from('subscriptions')
           .update({
             plan: 'free',
             status: 'canceled',
-            stripe_subscription_id: null,
+            cancel_at_period_end: false,
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscription.id);
+
+        if (error) {
+          console.error('[WEBHOOK] Failed to mark subscription as canceled:', error);
+          throw error;
+        }
+
         break;
       }
 
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
 
-        // Update subscription status to active after successful payment
         if (invoice.subscription) {
-          // Get user ID from subscription
-          const { data: subscription } = await supabaseAdmin
+          const { error } = await supabaseAdmin
             .from('subscriptions')
-            .select('user_id, plan')
-            .eq('stripe_subscription_id', invoice.subscription as string)
-            .single();
+            .update({
+              status: 'active',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('stripe_subscription_id', invoice.subscription as string);
 
-          if (subscription) {
-            await supabaseAdmin
-              .from('subscriptions')
-              .update({
-                status: 'active',
-                updated_at: new Date().toISOString(),
-              })
-              .eq('stripe_subscription_id', invoice.subscription as string);
-
-            // Refill credits
-            const planKey =
-              (subscription.plan as keyof typeof PLAN_LIMITS) || 'pro';
-            await supabaseAdmin
-              .from('profiles')
-              .update({
-                credits_balance: PLAN_LIMITS[planKey].monthly_credits,
-              })
-              .eq('id', subscription.user_id);
+          if (error) {
+            console.error(
+              '[WEBHOOK] Failed to update subscription after payment:',
+              error,
+            );
+            throw error;
           }
         }
+
         break;
       }
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
 
-        // Mark subscription as past_due
         if (invoice.subscription) {
-          await supabaseAdmin
+          const { error } = await supabaseAdmin
             .from('subscriptions')
             .update({
               status: 'past_due',
               updated_at: new Date().toISOString(),
             })
             .eq('stripe_subscription_id', invoice.subscription as string);
+
+          if (error) {
+            console.error('[WEBHOOK] Failed to mark payment as past_due:', error);
+            throw error;
+          }
         }
+
         break;
       }
 

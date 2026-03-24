@@ -5,21 +5,31 @@ import { Button } from '@/components/ui/button';
 import { getEnv } from '@/lib/env';
 import { createBrowserClient } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { Eye, EyeOff } from 'lucide-react';
+import { ChevronDown, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
+
+function normalizeReferralCode(value: string) {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
 
 function RegisterForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const searchParams = useSearchParams();
+  const [referralCode, setReferralCode] = useState(
+    () => normalizeReferralCode(searchParams.get('ref') || ''),
+  );
+  const [showReferral, setShowReferral] = useState(
+    () => !!searchParams.get('ref'),
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createBrowserClient();
   const { success: showSuccess, error: showError } = useToast();
 
@@ -52,6 +62,9 @@ function RegisterForm() {
       password,
       options: {
         emailRedirectTo: `${window.location.origin}${redirectPath}`,
+        data: {
+          referral_code: normalizeReferralCode(referralCode) || undefined,
+        },
       },
     });
 
@@ -171,6 +184,32 @@ function RegisterForm() {
           </div>
         </div>
 
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowReferral(!showReferral)}
+            className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors font-mono"
+          >
+            <ChevronDown
+              size={14}
+              className={cn('transition-transform duration-200', showReferral && 'rotate-180')}
+            />
+            Have a referral code?
+          </button>
+          {showReferral && (
+            <div className="mt-2 space-y-1">
+              <input
+                type="text"
+                value={referralCode}
+                onChange={(e) => setReferralCode(normalizeReferralCode(e.target.value))}
+                className="w-full px-3 py-2 bg-canvas border border-border-strong text-text-primary placeholder:text-text-muted rounded-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary font-mono text-sm uppercase"
+                placeholder="Enter code"
+                maxLength={32}
+              />
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center gap-3 py-2">
           <button
             type="button"
@@ -240,7 +279,7 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-full flex items-center justify-center bg-background px-4">
       <Suspense
         fallback={
           <div className="text-text-muted font-mono text-xs uppercase tracking-widest">

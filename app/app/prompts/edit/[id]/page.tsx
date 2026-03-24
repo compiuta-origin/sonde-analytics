@@ -8,7 +8,7 @@ import { useToast } from '@/components/providers/toast-provider';
 import { Button } from '@/components/ui/button';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { MODEL_FAMILIES, getModelForTier } from '@/lib/models';
-import { getPlanLimits } from '@/lib/plans';
+import { getEffectiveCreditLimit } from '@/lib/plans';
 import { RULE_TYPES, RULE_TYPES_BY_ID } from '@/lib/rules';
 import { useSubscription } from '@/lib/use-subscription';
 import { estimateMonthlyRuns, generateAlignedCron } from '@/lib/utils';
@@ -193,7 +193,20 @@ export default function EditPrompt() {
 
       // Check tier limits
       const newPromptCost = estimateMonthlyRuns(scheduleCron);
-      const limit = getPlanLimits(plan).monthly_credits;
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('referral_bonus_credits')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
+
+      const limit = getEffectiveCreditLimit(
+        plan,
+        profile?.referral_bonus_credits ?? 0,
+      );
 
       // Fetch existing usage (excluding current prompt)
       const { data: existingPrompts } = await supabase
@@ -214,7 +227,7 @@ export default function EditPrompt() {
           `Insufficient credits. This schedule requires ${newPromptCost} credits/month, but you only have ${Math.max(
             0,
             limit - currentUsage
-          )} left in your ${plan} plan.`
+          )} left in your monthly allowance.`
         );
         setSaving(false);
         return;

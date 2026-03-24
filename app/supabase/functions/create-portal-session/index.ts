@@ -2,6 +2,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import Stripe from 'https://esm.sh/stripe@17?target=denonext';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getCorsHeaders } from '../_shared/cors.ts';
+import {
+  PORTAL_SUBSCRIPTION_SELECTION_OPTIONS,
+  pickSubscriptionRow,
+} from '../_shared/subscription.ts';
 
 const stripeApiKey = Deno.env.get('STRIPE_API_KEY');
 if (!stripeApiKey) {
@@ -38,11 +42,22 @@ serve(async (req) => {
     if (!user) throw new Error('Unauthorized');
 
     // Get customer ID
-    const { data: subscription } = await supabaseClient
+    const { data: subscriptions, error: subscriptionError } = await supabaseClient
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, status, updated_at, created_at')
       .eq('user_id', user.id)
-      .single();
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (subscriptionError) {
+      throw subscriptionError;
+    }
+
+    const subscription = pickSubscriptionRow(
+      subscriptions,
+      PORTAL_SUBSCRIPTION_SELECTION_OPTIONS,
+    );
 
     if (!subscription?.stripe_customer_id) {
       throw new Error('No subscription found');

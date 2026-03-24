@@ -3,6 +3,18 @@ export interface Profile {
   id: string;
   email: string;
   credits_balance: number;
+  referral_code: string | null;
+  signup_referral_code: string | null;
+  signup_referral_status:
+    | 'none'
+    | 'pending'
+    | 'applied'
+    | 'invalid'
+    | 'self';
+  referred_by_user_id: string | null;
+  referral_bonus_credits: number;
+  last_credit_reset_key: string | null;
+  notify_on_completion?: boolean;
   tour_completed: boolean;
   created_at: string;
 }

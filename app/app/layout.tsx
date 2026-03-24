@@ -41,13 +41,13 @@ export default function RootLayout({
       <body
         className={`${inter.className} bg-background text-foreground h-screen flex flex-col overflow-hidden`}
       >
-        <AuthProvider>
-          <ToastProvider>
+        <ToastProvider>
+          <AuthProvider>
             <WelcomeTour />
             <Navbar />
             <main className="container mx-auto px-4 py-8 flex-1 min-h-0 overflow-auto">{children}</main>
-          </ToastProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );

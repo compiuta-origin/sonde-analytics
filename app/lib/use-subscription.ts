@@ -1,6 +1,7 @@
 'use client';
 
 import { useSupabase } from '@/components/auth-provider';
+import { getResolvedPlan, pickCurrentSubscription } from '@/lib/subscription';
 import { useEffect, useState } from 'react';
 
 export type SubscriptionPlan = 'free' | 'pro' | 'enterprise';
@@ -27,18 +28,25 @@ export function useSubscription(): Subscription {
       try {
         const { data, error } = await supabase
           .from('subscriptions')
-          .select('plan, status')
+          .select('plan, status, current_period_start, current_period_end, updated_at, created_at')
           .eq('user_id', user.id)
-          .single();
+          .order('updated_at', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-        if (error && error.code !== 'PGRST116') {
-           // Ignore 'Row not found' error, means Free tier
+        if (error) {
            console.error('Error fetching subscription:', error);
         }
 
-        if (data && ['active', 'trialing'].includes(data.status)) {
-          setPlan(data.plan as SubscriptionPlan);
-          setStatus(data.status);
+        const subscription = pickCurrentSubscription(data);
+
+        if (subscription) {
+          setPlan(getResolvedPlan(subscription) as SubscriptionPlan);
+          setStatus(
+            ['active', 'trialing'].includes(subscription.status ?? '')
+              ? (subscription.status as string)
+              : 'inactive',
+          );
         } else {
           setPlan('free');
           setStatus('inactive');

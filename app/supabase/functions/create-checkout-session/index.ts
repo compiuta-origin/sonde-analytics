@@ -2,6 +2,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import Stripe from 'https://esm.sh/stripe@17?target=denonext';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getCorsHeaders } from '../_shared/cors.ts';
+import {
+  CHECKOUT_SUBSCRIPTION_SELECTION_OPTIONS,
+  pickSubscriptionRow,
+} from '../_shared/subscription.ts';
 
 const stripeApiKey = Deno.env.get('STRIPE_API_KEY');
 if (!stripeApiKey) {
@@ -62,11 +66,22 @@ serve(async (req) => {
     const priceId = prices.data[0].id;
 
     // Check if user already has a Stripe customer ID
-    const { data: subscription } = await supabaseClient
+    const { data: subscriptions, error: subscriptionError } = await supabaseClient
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('id, stripe_customer_id, plan, status, updated_at, created_at')
       .eq('user_id', user.id)
-      .single();
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (subscriptionError) {
+      throw subscriptionError;
+    }
+
+    const subscription = pickSubscriptionRow(
+      subscriptions,
+      CHECKOUT_SUBSCRIPTION_SELECTION_OPTIONS,
+    );
 
     let customerId = subscription?.stripe_customer_id;
 
@@ -81,11 +96,29 @@ serve(async (req) => {
       customerId = customer.id;
 
       // Store customer ID in database
-      await supabaseClient.from('subscriptions').upsert({
-        user_id: user.id,
-        stripe_customer_id: customerId,
-        plan: 'free',
-      });
+      if (subscription?.id) {
+        const { error: updateError } = await supabaseClient
+          .from('subscriptions')
+          .update({
+            stripe_customer_id: customerId,
+            plan: subscription.plan ?? 'free',
+          })
+          .eq('id', subscription.id);
+        if (updateError) {
+          throw updateError;
+        }
+      } else {
+        const { error: insertError } = await supabaseClient
+          .from('subscriptions')
+          .insert({
+          user_id: user.id,
+          stripe_customer_id: customerId,
+          plan: 'free',
+        });
+        if (insertError) {
+          throw insertError;
+        }
+      }
     }
 
     // Create Checkout Session
